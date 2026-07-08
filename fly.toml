@@ -1,0 +1,38 @@
+app = "wordgames-api"
+primary_region = "ord"
+
+[build]
+  dockerfile = "src/main/docker/Dockerfile.jvm"
+
+[env]
+  QUARKUS_PROFILE = "prod"
+  QUARKUS_HTTP_PORT = "8081"
+  OIDC_AUTH_SERVER_URL = "https://customauth.fly.dev/"
+  OIDC_CLIENT_ID = "wordgamebff"
+  OIDC_TOKEN_AUDIENCE = "resource_server"
+  BFF_CLIENT_ID = "wordgamebff"
+  JAVA_OPTS_APPEND = "-Dquarkus.http.host=0.0.0.0 -XX:MaxRAMPercentage=70.0 -XX:+UseSerialGC"
+
+[http_service]
+  internal_port = 8081
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 25
+    hard_limit = 50
+
+[[http_service.checks]]
+  grace_period = "60s"
+  interval = "30s"
+  method = "GET"
+  path = "/q/health/ready"
+  timeout = "5s"
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1

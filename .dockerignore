@@ -1,0 +1,8 @@
+target/
+.git/
+.metadata/
+.settings/
+.env
+.DS_Store
+*.md
+!README.md
