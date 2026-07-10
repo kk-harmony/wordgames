@@ -1,5 +1,6 @@
 ####
 # Multi-stage Dockerfile for the Quarkus wordgames application (JVM mode)
+# Uses Eclipse Temurin (OpenJDK) — fully open source, no proprietary base image.
 #
 # Build:
 #   docker build -f src/main/docker/Dockerfile.jvm -t quarkus/wordgames-jvm .
@@ -14,30 +15,34 @@
 #     quarkus/wordgames-jvm
 ####
 
-FROM registry.access.redhat.com/ubi9/openjdk-25:1.24 AS build
-USER root
-RUN microdnf install -y unzip && microdnf clean all
+FROM eclipse-temurin:25-jdk-jammy AS build
 WORKDIR /project
 COPY mvnw mvnw.cmd pom.xml ./
 COPY .mvn .mvn
 COPY src src
-RUN sh mvnw package -DskipTests -B
+RUN chmod +x mvnw && ./mvnw package -DskipTests -B
 
-FROM registry.access.redhat.com/ubi9/openjdk-25-runtime:1.24
+FROM eclipse-temurin:25-jre-jammy
 
-ENV LANGUAGE='en_US:en'
+ENV LANGUAGE='en_US:en' \
+    QUARKUS_HTTP_PORT=8081 \
+    JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -XX:MaxRAMPercentage=70.0"
 
-COPY --chown=185 --from=build /project/target/quarkus-app/lib/ /deployments/lib/
-COPY --chown=185 --from=build /project/target/quarkus-app/*.jar /deployments/
-COPY --chown=185 --from=build /project/target/quarkus-app/app/ /deployments/app/
-COPY --chown=185 --from=build /project/target/quarkus-app/quarkus/ /deployments/quarkus/
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/*
 
+WORKDIR /deployments
+COPY --chown=185:0 --from=build /project/target/quarkus-app/lib/ /deployments/lib/
+COPY --chown=185:0 --from=build /project/target/quarkus-app/*.jar /deployments/
+COPY --chown=185:0 --from=build /project/target/quarkus-app/app/ /deployments/app/
+COPY --chown=185:0 --from=build /project/target/quarkus-app/quarkus/ /deployments/quarkus/
+
+USER 185
 EXPOSE 8081
-ENV JAVA_OPTS_APPEND="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
-ENV QUARKUS_HTTP_PORT=8081
-ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD curl -f http://localhost:8081/q/health/ready || exit 1
 
-ENTRYPOINT [ "/opt/jboss/container/java/run/run-java.sh" ]
+ENTRYPOINT [ "sh", "-c", "exec java $JAVA_OPTS -jar /deployments/quarkus-run.jar" ]

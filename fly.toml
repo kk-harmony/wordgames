@@ -11,9 +11,8 @@ primary_region = "ord"
   OIDC_CLIENT_ID = "wordgamebff"
   OIDC_TOKEN_AUDIENCE = "resource_server"
   BFF_CLIENT_ID = "wordgamebff"
-  # Do not set -XX:+UseSerialGC here: the UBI run-java.sh already enables UseParallelGC,
-  # and selecting both GCs makes the JVM exit with "Multiple garbage collectors selected".
-  JAVA_OPTS_APPEND = "-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -XX:MaxRAMPercentage=70.0"
+  # JVM flags for Temurin JRE (no UBI run-java.sh defaults to conflict with)
+  JAVA_OPTS = "-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -XX:MaxRAMPercentage=70.0"
 
 [http_service]
   internal_port = 8081
