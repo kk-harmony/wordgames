@@ -135,26 +135,33 @@ The app deploys to **https://wordgames-api.fly.dev** via GitHub Actions on every
 fly apps create wordgames-api
 
 fly secrets set \
-  QUARKUS_DATASOURCE_JDBC_URL='jdbc:postgresql://USER:PASSWORD@HOST:5432/DATABASE?sslmode=require' \
+  QUARKUS_DATASOURCE_JDBC_URL='jdbc:postgresql://HOST:5432/DATABASE?sslmode=require' \
+  QUARKUS_DATASOURCE_USERNAME='your-db-user' \
+  QUARKUS_DATASOURCE_PASSWORD='your-db-password' \
   OIDC_CLIENT_SECRET='your-client-secret'
 
 fly tokens create deploy -a wordgames-api -x 999999h
 # Add the token output as FLY_API_TOKEN in GitHub → Settings → Secrets → Actions
 ```
 
-If your provider gives a `postgres://` URL, convert to JDBC first:
+If your provider gives a `postgres://` URL, convert to JDBC and put credentials in separate secrets (do **not** embed `user:pass@` in the JDBC URL — the Postgres driver misparses that as a hostname):
 
 ```
-postgres://user:pass@host:5432/mydb  →  jdbc:postgresql://user:pass@host:5432/mydb?sslmode=require
+postgres://user:pass@host:5432/mydb
+  →  QUARKUS_DATASOURCE_JDBC_URL=jdbc:postgresql://host:5432/mydb?sslmode=require
+  →  QUARKUS_DATASOURCE_USERNAME=user
+  →  QUARKUS_DATASOURCE_PASSWORD=pass
 ```
 
-Credentials go in the JDBC URL (`USER:PASSWORD@HOST`). Production does **not** need separate `QUARKUS_DATASOURCE_USERNAME` or `QUARKUS_DATASOURCE_PASSWORD` secrets. Schema `wrdgm` is configured in the app (not in the connection string).
+For Supabase, prefer the **session** pooler (port `5432`) or direct DB host for Flyway migrations; transaction pooler (`6543`) can break schema migrations.
 
 **Fly secrets:**
 
 | Secret | Purpose |
 |--------|---------|
-| `QUARKUS_DATASOURCE_JDBC_URL` | Full JDBC URL with embedded user and password |
+| `QUARKUS_DATASOURCE_JDBC_URL` | JDBC URL **without** embedded credentials, e.g. `jdbc:postgresql://host:5432/mydb?sslmode=require` |
+| `QUARKUS_DATASOURCE_USERNAME` | Database user |
+| `QUARKUS_DATASOURCE_PASSWORD` | Database password |
 | `OIDC_CLIENT_SECRET` | Introspection secret for `wordgamebff` client |
 
 If you need direct browser access (not via the BFF), set `CORS_ORIGINS` in [`fly.toml`](fly.toml) `[env]` — it is not a secret.
