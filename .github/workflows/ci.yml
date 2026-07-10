@@ -9,6 +9,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: wordgame
+          POSTGRES_USER: mainuser
+          POSTGRES_PASSWORD: test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U mainuser -d wordgame"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
 
@@ -21,6 +35,10 @@ jobs:
 
       - name: Build and test
         run: ./mvnw clean package -B
+        env:
+          QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://localhost:5432/wordgame
+          QUARKUS_DATASOURCE_USERNAME: mainuser
+          QUARKUS_DATASOURCE_PASSWORD: test
 
   deploy:
     name: Deploy to Fly.io
