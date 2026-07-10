@@ -15,12 +15,11 @@
 #     quarkus/wordgames-jvm
 ####
 
-FROM eclipse-temurin:25-jdk-jammy AS build
+FROM maven:3.9.12-eclipse-temurin-25 AS build
 WORKDIR /project
-COPY mvnw mvnw.cmd pom.xml ./
-COPY .mvn .mvn
+COPY pom.xml ./
 COPY src src
-RUN chmod +x mvnw && ./mvnw package -DskipTests -B
+RUN mvn package -DskipTests -B
 
 FROM eclipse-temurin:25-jre-jammy
 
