@@ -134,6 +134,17 @@ public class GameFlowTest {
 
 		@Test
 		@Order(6)
+		@TestSecurity(user = "player2")
+		void memberCannotGetSecretWordWhileInProgress() {
+			given()
+					.when()
+					.get("/secretwords/{id}", secretWordId())
+					.then()
+					.statusCode(403);
+		}
+
+		@Test
+		@Order(7)
 		@TestSecurity(user = "admin")
 		void adminReceivesAssignedWord() {
 			given()
@@ -299,6 +310,20 @@ public class GameFlowTest {
 					.body("status", is("FINISHED"))
 					.body("members.find { it.userId == 'player2' }.eliminated", is(true))
 					.body("outcome", notNullValue());
+		}
+
+		@Test
+		@Order(11)
+		@TestSecurity(user = "player2")
+		void finishedGameMemberCanGetSecretWord() {
+			given()
+					.when()
+					.get("/secretwords/{id}", secretWordId())
+					.then()
+					.statusCode(200)
+					.body("id", is((int) secretWordId()))
+					.body("authentic", is("apple"))
+					.body("imposed", is("orange"));
 		}
 	}
 

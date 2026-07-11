@@ -14,4 +14,6 @@ public class GameResponse {
 	public String currentTurnUserId;
 	public java.util.List<GameMemberResponse> members;
 	public String impostorUserId;
+	/** Present only when finished so members can verify both words (not mid-game). */
+	public SecretWordResponse secretWord;
 }

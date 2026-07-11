@@ -18,4 +18,6 @@ public interface GameRepository {
 	boolean hasWaitingGameAsAdmin(String adminUserId);
 
 	boolean isSecretWordUsedByAdmin(Long secretWordId, String adminUserId);
+
+	boolean isSecretWordUsedInFinishedGameByMember(Long secretWordId, String userId);
 }

@@ -60,6 +60,9 @@ public class SecretWordService {
 		if (gameRepository.isSecretWordUsedByAdmin(secretWordId, userId)) {
 			return true;
 		}
+		if (gameRepository.isSecretWordUsedInFinishedGameByMember(secretWordId, userId)) {
+			return true;
+		}
 		return isInSelectionPool(secretWordId, userId);
 	}
 

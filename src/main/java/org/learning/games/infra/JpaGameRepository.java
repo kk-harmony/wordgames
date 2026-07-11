@@ -30,12 +30,22 @@ public class JpaGameRepository implements GameRepository {
 	public Optional<Game> findByIdWithMembers(Long id) {
 		em.flush();
 		em.clear();
-		return em.createQuery(
+		// Two-query fetch: Hibernate cannot reliably JOIN FETCH a bag (members) and
+		// another association in one query when using streams/distinct.
+		List<Game> withSecretWord = em.createQuery(
+				"SELECT g FROM Game g LEFT JOIN FETCH g.secretWord WHERE g.id = :id",
+				Game.class)
+				.setParameter("id", id)
+				.getResultList();
+		if (withSecretWord.isEmpty()) {
+			return Optional.empty();
+		}
+		em.createQuery(
 				"SELECT g FROM Game g LEFT JOIN FETCH g.members WHERE g.id = :id",
 				Game.class)
 				.setParameter("id", id)
-				.getResultStream()
-				.findFirst();
+				.getResultList();
+		return Optional.of(withSecretWord.get(0));
 	}
 
 	@Override
@@ -65,6 +75,20 @@ public class JpaGameRepository implements GameRepository {
 				Long.class)
 				.setParameter("adminUserId", adminUserId)
 				.setParameter("secretWordId", secretWordId)
+				.getSingleResult() > 0;
+	}
+
+	@Override
+	public boolean isSecretWordUsedInFinishedGameByMember(Long secretWordId, String userId) {
+		return em.createQuery(
+				"SELECT COUNT(g) FROM Game g JOIN g.members m "
+						+ "WHERE g.secretWord.id = :secretWordId "
+						+ "AND g.status = :status "
+						+ "AND m.userId = :userId",
+				Long.class)
+				.setParameter("secretWordId", secretWordId)
+				.setParameter("status", org.learning.games.domain.model.GameStatus.FINISHED)
+				.setParameter("userId", userId)
 				.getSingleResult() > 0;
 	}
 }

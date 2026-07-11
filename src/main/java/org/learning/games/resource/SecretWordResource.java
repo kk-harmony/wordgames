@@ -69,7 +69,7 @@ public class SecretWordResource {
 
 	@GET
 	@Path("{id}")
-	@Operation(summary = "Get secret word", description = "Returns a secret word the caller is authorized to view")
+	@Operation(summary = "Get secret word", description = "Returns a secret word the caller is authorized to view (selection-pool admin, admin who used it, or member of a finished game that used it)")
 	@APIResponses({
 			@APIResponse(responseCode = "200", description = "Secret word", content = @Content(schema = @Schema(implementation = SecretWordResponse.class))),
 			@APIResponse(responseCode = "403", description = "Not authorized", content = @Content(schema = @Schema(implementation = CustomErrorWrapper.class))),

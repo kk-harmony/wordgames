@@ -24,6 +24,10 @@ public final class GameMapper {
 		response.voteResetCount = game.voteResetCount;
 		response.currentTurnUserId = game.currentTurnUserId;
 		response.impostorUserId = game.status == GameStatus.FINISHED ? game.impostorUserId : null;
+		// Mid-game: word pair stays admin-only via /secret-words. Finished: all members see both.
+		response.secretWord = game.status == GameStatus.FINISHED && game.secretWord != null
+				? SecretWordMapper.toResponse(game.secretWord)
+				: null;
 		if (game.members != null) {
 			response.members = game.members.stream().map(GameMapper::toMemberResponse).toList();
 		}
