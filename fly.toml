@@ -11,6 +11,9 @@ primary_region = "ord"
   OIDC_CLIENT_ID = "wordgamebff"
   OIDC_TOKEN_AUDIENCE = "resource_server"
   BFF_CLIENT_ID = "wordgamebff"
+  # IP rate limits (Bucket4j api bucket). Overrides application.properties in prod.
+  QUARKUS_RATE_LIMITER_BUCKETS_API_LIMITS_0_PERMITTED_USES = "100"
+  QUARKUS_RATE_LIMITER_BUCKETS_API_LIMITS_1_PERMITTED_USES = "500"
   # JVM flags for Temurin JRE (no UBI run-java.sh defaults to conflict with)
   JAVA_OPTS = "-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -XX:MaxRAMPercentage=70.0"
 
