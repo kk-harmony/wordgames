@@ -21,7 +21,7 @@ public class RateLimitFilter implements ContainerRequestFilter {
 	@Inject
 	PrincipalRateLimitService principalRateLimitService;
 
-	@ConfigProperty(name = "app.rate-limit.enabled", defaultValue = "true")
+	@ConfigProperty(name = "app.rate-limit.enabled", defaultValue = "false")
 	boolean enabled;
 
 	@ConfigProperty(name = "app.rate-limit.per-user.enabled", defaultValue = "false")
