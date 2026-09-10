@@ -11,7 +11,7 @@ The application follows a layered layout:
 | REST | `org.learning.games.resource` | HTTP endpoints, request validation, auth checks |
 | API | `org.learning.games.api` | Request/response DTOs and mappers |
 | Domain | `org.learning.games.domain` | Game rules, voting logic, repository interfaces, shared `domain.model` enums |
-| Infrastructure | `org.learning.games.infra` | JPA repositories, rate limiting, exception mappers |
+| Infrastructure | `org.learning.games.infra` | JPA repositories, optional rate limiting, exception mappers |
 | Entities | `org.learning.games.entity` | JPA persistence models |
 
 Authentication uses OIDC bearer tokens from [customauth.fly.dev](https://customauth.fly.dev/). The BFF (`wordgamebff`) may proxy user requests via the `X-Delegated-User-Id` header. All endpoints except health checks require a valid token.
@@ -31,7 +31,7 @@ Game flow:
 - **Quarkus 3** — REST, CDI, Hibernate ORM, Hibernate Validator, Flyway
 - **PostgreSQL** — persistent storage for games, members, and secret words
 - **Quarkus OIDC** — token introspection against the configured OIDC authority
-- **Bucket4j** — IP-based rate limiting (30 req/10s, 200 req/min)
+- **Bucket4j** — optional rate limiting (disabled by default; BFF owns edge limits)
 - **Micrometer Prometheus** — metrics at `/q/metrics`
 - **SmallRye Health** — liveness/readiness probes at `/q/health`
 
@@ -212,7 +212,7 @@ This starts PostgreSQL and the Quarkus app. The app image is built from `src/mai
 ### Security
 
 - All routes except `/q/health` require authentication.
-- IP-based rate limiting is enabled by default (`app.rate-limit.enabled=true`).
+- Rate limiting is **disabled** by default (`app.rate-limit.enabled=false`); enable only for direct public exposure. The BFF (`wordgamebff`) owns client rate limits.
 - Standard security headers (X-Content-Type-Options, X-Frame-Options, etc.) are set on all responses.
 - Swagger UI and the `/q/openapi` endpoint are disabled at runtime; API docs are generated at build time only.
 
