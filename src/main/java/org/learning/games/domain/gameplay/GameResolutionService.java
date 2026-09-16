@@ -9,6 +9,7 @@ import java.util.stream.Collectors;
 import org.learning.games.domain.GameMemberRepository;
 import org.learning.games.domain.GameMetrics;
 import org.learning.games.domain.GameRandom;
+import org.learning.games.domain.GameSessionRepository;
 import org.learning.games.domain.exception.NotFoundException;
 import org.learning.games.domain.model.GameOutcome;
 import org.learning.games.domain.model.GameStatus;
@@ -35,12 +36,23 @@ public class GameResolutionService {
 	@Inject
 	GameMetrics gameMetrics;
 
+	@Inject
+	GameSessionRepository gameSessionRepository;
+
 	public void finishGame(Game game, GameOutcome outcome) {
 		game.status = GameStatus.FINISHED;
 		game.outcome = outcome;
 		game.currentTurnUserId = null;
+		clearSessionCurrentGame(game);
 		gameMetrics.recordGameFinished();
 		LOG.info(() -> "game.finished gameId=" + game.id + " outcome=" + outcome);
+	}
+
+	private void clearSessionCurrentGame(Game game) {
+		if (game.id == null) {
+			return;
+		}
+		gameSessionRepository.findByCurrentGameId(game.id).ifPresent(session -> session.currentGameId = null);
 	}
 
 	public void setCurrentTurnToFirst(Game game) {
