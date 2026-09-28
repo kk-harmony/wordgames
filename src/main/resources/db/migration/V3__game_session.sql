@@ -16,6 +16,7 @@ CREATE TABLE sessionmember (
     user_id VARCHAR(255) NOT NULL,
     display_name VARCHAR(30),
     role VARCHAR(255),
+    score INTEGER NOT NULL DEFAULT 0,
     CONSTRAINT uk_sessionmember_session_user UNIQUE (session_id, user_id)
 );
 
