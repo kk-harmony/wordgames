@@ -34,4 +34,6 @@ public class SessionMember {
 
 	@Enumerated(EnumType.STRING)
 	public MemberRole role;
+
+	public int score = 0;
 }

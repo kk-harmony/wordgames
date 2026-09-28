@@ -34,6 +34,7 @@ public final class SessionMapper {
 		response.userId = member.userId;
 		response.displayName = member.displayName;
 		response.role = member.role;
+		response.score = member.score;
 		return response;
 	}
 }

@@ -7,4 +7,5 @@ public class SessionMemberResponse {
 	public String userId;
 	public String displayName;
 	public MemberRole role;
+	public int score;
 }

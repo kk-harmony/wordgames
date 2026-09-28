@@ -4,13 +4,19 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.CoreMatchers.nullValue;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.matchesPattern;
+
+import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.learning.games.domain.gameplay.SessionScoringPolicy;
+import org.learning.games.domain.model.GameOutcome;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
@@ -254,14 +260,45 @@ public class SessionFlowTest {
 		@Test
 		@Order(14)
 		@TestSecurity(user = "admin")
-		void sessionClearsCurrentGameAfterFinish() {
-			given()
+		void sessionClearsCurrentGameAfterFinishAndAwardsScores() {
+			var game = given()
+					.when()
+					.get("/games/{id}", gameId)
+					.then()
+					.statusCode(200)
+					.extract()
+					.jsonPath();
+
+			String outcome = game.getString("outcome");
+			String impostor = game.getString("impostorUserId");
+
+			// Final-round votes in this flow: admin→player2, player2→player3, player3→player2
+			Map<String, String> votes = Map.of(
+					"admin", "player2",
+					"player2", "player3",
+					"player3", "player2");
+			Map<String, Integer> expected = SessionScoringPolicy.deltas(
+					GameOutcome.valueOf(outcome),
+					impostor,
+					votes);
+
+			var session = given()
 					.when()
 					.get("/sessions/{code}", sessionCode)
 					.then()
 					.statusCode(200)
 					.body("currentGameId", nullValue())
-					.body("gamesStartedCount", is(1));
+					.body("gamesStartedCount", is(1))
+					.extract()
+					.jsonPath();
+
+			List<Map<String, Object>> members = session.getList("members");
+			assertThat(members, notNullValue());
+			for (Map<String, Object> member : members) {
+				String userId = (String) member.get("userId");
+				int score = ((Number) member.get("score")).intValue();
+				assertThat(userId + " score", score, is(expected.getOrDefault(userId, 0)));
+			}
 		}
 
 		@Test
@@ -306,14 +343,29 @@ public class SessionFlowTest {
 		@Test
 		@Order(17)
 		@TestSecurity(user = "admin")
-		void sessionShowsSecondGameCount() {
-			given()
+		void sessionShowsSecondGameCountAndKeepsScores() {
+			var session = given()
 					.when()
 					.get("/sessions/{code}", sessionCode)
 					.then()
 					.statusCode(200)
 					.body("gamesStartedCount", is(2))
-					.body("currentGameStatus", is("IN_PROGRESS"));
+					.body("currentGameStatus", is("IN_PROGRESS"))
+					.extract()
+					.jsonPath();
+
+			List<Map<String, Object>> members = session.getList("members");
+			int totalScore = members.stream()
+					.mapToInt(m -> ((Number) m.get("score")).intValue())
+					.sum();
+			// First game always awards at least impostor-win (3) or identify points (2+).
+			assertThat(totalScore, org.hamcrest.Matchers.greaterThan(0));
+			int lateScore = members.stream()
+					.filter(m -> "late".equals(m.get("userId")))
+					.mapToInt(m -> ((Number) m.get("score")).intValue())
+					.findFirst()
+					.orElse(-1);
+			assertThat(lateScore, is(0));
 		}
 	}
 
