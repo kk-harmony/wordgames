@@ -36,8 +36,11 @@ class DataCleanupServiceDryRunTest {
 	void resetData() {
 		QuarkusTransaction.requiringNew().run(() -> {
 			em.createQuery("DELETE FROM IdempotencyRecord").executeUpdate();
+			em.createNativeQuery("UPDATE gamesession SET current_game_id = NULL").executeUpdate();
 			em.createQuery("DELETE FROM GameMember").executeUpdate();
 			em.createQuery("DELETE FROM Game").executeUpdate();
+			em.createQuery("DELETE FROM SessionMember").executeUpdate();
+			em.createQuery("DELETE FROM GameSession").executeUpdate();
 		});
 	}
 

@@ -54,8 +54,29 @@ public class GameStartService {
 					"At least " + GameRules.MIN_PLAYERS + " players are required to start the game");
 		}
 
-		SecretWord secretWord = secretWordRepository.findById(secretWordId)
+		SecretWord secretWord = requireSecretWord(secretWordId);
+		beginPlay(game, members, secretWord);
+
+		gameMetrics.recordGameStarted();
+		LOG.info(() -> "game.started gameId=" + gameId + " adminUserId=" + userId + " players=" + members.size());
+
+		return gameAccess.reloadGame(gameId);
+	}
+
+	public SecretWord requireSecretWord(Long secretWordId) {
+		return secretWordRepository.findById(secretWordId)
 				.orElseThrow(() -> new NotFoundException("SecretWord " + secretWordId + " not found"));
+	}
+
+	/**
+	 * Assigns words, picks impostor, and moves the game to IN_PROGRESS.
+	 * Callers must enforce membership and status preconditions.
+	 */
+	public void beginPlay(Game game, List<GameMember> members, SecretWord secretWord) {
+		if (members.size() < GameRules.MIN_PLAYERS) {
+			throw new BadRequestException(
+					"At least " + GameRules.MIN_PLAYERS + " players are required to start the game");
+		}
 
 		int impostorIndex = gameRandom.nextInt(members.size());
 		GameMember impostor = members.get(impostorIndex);
@@ -78,10 +99,5 @@ public class GameStartService {
 		game.voteResetCount = 0;
 		game.outcome = null;
 		resolutionService.setCurrentTurnToFirst(game);
-
-		gameMetrics.recordGameStarted();
-		LOG.info(() -> "game.started gameId=" + gameId + " adminUserId=" + userId + " players=" + members.size());
-
-		return gameAccess.reloadGame(gameId);
 	}
 }

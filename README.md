@@ -20,11 +20,14 @@ On first startup, **Flyway** creates the `wrdgm` schema and tables automatically
 
 Game flow:
 
-1. Admin creates a game and is added as `ADMIN`.
-2. Other users join (`MEMBER`).
-3. Admin starts the game with a `SecretWord` (requires at least 3 players). One random player receives the imposed word; the rest receive the authentic word.
+1. Admin creates a **session** and receives a public **5-character join code** (letters+digits; ambiguous glyphs like `0`/`O`/`1`/`I`/`L` are excluded). The creator is session `ADMIN`.
+2. Other users join the session with that code (`MEMBER`) between games.
+3. Admin starts a game under the session with a `SecretWord` (requires at least 3 session members; max 20 games per session). Session members are snapshotted into the new game; one random player receives the imposed word.
 4. Active players complete their turn, then vote. Tied votes reset (up to 3 times, then a random tied player is eliminated).
 5. The highest-voted player is eliminated each round until the impostor is out or only two players remain.
+6. When the game finishes, players remain on the session lobby and can start another game (late joiners may join between games).
+
+Standalone `POST /games` remains available for single-game create/join, but the product UI uses sessions.
 
 ## Dependencies
 
@@ -40,11 +43,16 @@ Game flow:
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/auth/me` | Current authenticated user |
-| POST | `/games` | Create a game (creator becomes admin) — **201 Created** |
+| POST | `/sessions` | Create a multi-game session (creator becomes admin); response `id` is the join code — **201 Created** |
+| GET | `/sessions/{code}` | Get session details by join code (members only) |
+| POST | `/sessions/{code}/members` | Join a session between games — **201 Created** |
+| DELETE | `/sessions/{code}/members/{userId}` | Leave (self) or kick (admin), between games |
+| POST | `/sessions/{code}/games` | Start next game from session roster (admin only, min 3 players, max 20) — **201 Created** |
+| POST | `/games` | Create a standalone game (creator becomes admin) — **201 Created** |
 | GET | `/games/{id}` | Get game details (members only) |
 | POST | `/games/{id}/members` | Join a game — **201 Created** |
 | DELETE | `/games/{id}/members/{userId}` | Leave (self) or kick (admin) |
-| POST | `/games/{id}/start` | Start game (admin only, min 3 players) |
+| POST | `/games/{id}/start` | Start a waiting standalone game (admin only, min 3 players) |
 | POST | `/games/{id}/turn/complete` | Mark turn complete; supports `Idempotency-Key` header |
 | GET | `/games/{id}/my-word` | Get assigned word and type |
 | POST | `/games/{id}/vote` | Cast vote; supports `Idempotency-Key` header |

@@ -1,0 +1,25 @@
+---
+description: Enforce TDD and SOLID for Quarkus wordgames
+alwaysApply: true
+---
+
+# TDD and SOLID (wordgames)
+
+## TDD
+- Red → green → refactor for behavior changes.
+- Domain/service tests first under `src/test/java/...`, then resource/API flow tests.
+- Flyway migrations only as needed to make tests green.
+- Do not ship untested domain rules or public REST behavior.
+
+## SOLID / layers
+- `resource` stays thin (HTTP, auth identity, mapping).
+- `domain` owns rules + repository interfaces; `infra` implements JPA.
+- DTOs/mappers live in `api`; entities are persistence models, not rule engines.
+- Reuse shared gameplay services (`GameStartService`, `GameResolutionService`); do not duplicate start/finish logic across session vs game paths.
+- Keep join codes, caps, and similar policies as `domain.gameplay` types with unit tests.
+
+## i18n
+- Upstream API error messages stay English; BFF/UI localize for players. No Nepali strings in Quarkus unless a user-facing UI is added here.
+
+## Non-goals
+- No large drive-by refactors or “tests later.”

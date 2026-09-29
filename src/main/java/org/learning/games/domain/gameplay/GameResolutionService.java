@@ -1,6 +1,7 @@
 package org.learning.games.domain.gameplay;
 
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -9,11 +10,14 @@ import java.util.stream.Collectors;
 import org.learning.games.domain.GameMemberRepository;
 import org.learning.games.domain.GameMetrics;
 import org.learning.games.domain.GameRandom;
+import org.learning.games.domain.GameSessionRepository;
+import org.learning.games.domain.SessionMemberRepository;
 import org.learning.games.domain.exception.NotFoundException;
 import org.learning.games.domain.model.GameOutcome;
 import org.learning.games.domain.model.GameStatus;
 import org.learning.games.entity.Game;
 import org.learning.games.entity.GameMember;
+import org.learning.games.entity.SessionMember;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -35,12 +39,63 @@ public class GameResolutionService {
 	@Inject
 	GameMetrics gameMetrics;
 
+	@Inject
+	GameSessionRepository gameSessionRepository;
+
+	@Inject
+	SessionMemberRepository sessionMemberRepository;
+
 	public void finishGame(Game game, GameOutcome outcome) {
 		game.status = GameStatus.FINISHED;
 		game.outcome = outcome;
 		game.currentTurnUserId = null;
+		awardSessionScores(game, outcome);
+		clearSessionCurrentGame(game);
 		gameMetrics.recordGameFinished();
 		LOG.info(() -> "game.finished gameId=" + game.id + " outcome=" + outcome);
+	}
+
+	private void awardSessionScores(Game game, GameOutcome outcome) {
+		Long sessionId = resolveSessionId(game);
+		if (sessionId == null || game.id == null) {
+			return;
+		}
+
+		Map<String, String> votes = new HashMap<>();
+		for (GameMember member : memberRepository.findByGame(game.id)) {
+			if (member.votedForUserId != null && !member.votedForUserId.isBlank()) {
+				votes.put(member.userId, member.votedForUserId);
+			}
+		}
+
+		Map<String, Integer> deltas = SessionScoringPolicy.deltas(outcome, game.impostorUserId, votes);
+		if (deltas.isEmpty()) {
+			return;
+		}
+
+		for (SessionMember sessionMember : sessionMemberRepository.findBySession(sessionId)) {
+			Integer delta = deltas.get(sessionMember.userId);
+			if (delta != null) {
+				sessionMember.score += delta;
+			}
+		}
+	}
+
+	private Long resolveSessionId(Game game) {
+		if (game.session != null && game.session.id != null) {
+			return game.session.id;
+		}
+		if (game.id == null) {
+			return null;
+		}
+		return gameSessionRepository.findByCurrentGameId(game.id).map(session -> session.id).orElse(null);
+	}
+
+	private void clearSessionCurrentGame(Game game) {
+		if (game.id == null) {
+			return;
+		}
+		gameSessionRepository.findByCurrentGameId(game.id).ifPresent(session -> session.currentGameId = null);
 	}
 
 	public void setCurrentTurnToFirst(Game game) {
