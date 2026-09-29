@@ -62,6 +62,10 @@ class GameServiceConcurrencyTest {
 		@Order(2)
 		@TestSecurity(user = "admin")
 		void parallelCompleteTurn_oneSucceedsOneOptimisticLock() throws Exception {
+			String turnUser = QuarkusTransaction.requiringNew()
+					.call(() -> gameService.getGameForMember(gameId, "admin").currentTurnUserId);
+			assertEquals(true, turnUser != null && !turnUser.isBlank());
+
 			CountDownLatch ready = new CountDownLatch(2);
 			CountDownLatch start = new CountDownLatch(1);
 			AtomicInteger successes = new AtomicInteger();
@@ -72,7 +76,7 @@ class GameServiceConcurrencyTest {
 				ready.countDown();
 				try {
 					start.await();
-					QuarkusTransaction.requiringNew().run(() -> gameService.completeTurn(gameId, "admin"));
+					QuarkusTransaction.requiringNew().run(() -> gameService.completeTurn(gameId, turnUser));
 					successes.incrementAndGet();
 				} catch (Exception ex) {
 					if (isOptimisticLock(ex) || isConcurrentTurnConflict(ex)) {

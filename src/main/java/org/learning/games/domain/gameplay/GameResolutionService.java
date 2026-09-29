@@ -104,7 +104,7 @@ public class GameResolutionService {
 			game.currentTurnUserId = null;
 			return;
 		}
-		game.currentTurnUserId = members.get(0).userId;
+		game.currentTurnUserId = members.get(gameRandom.nextInt(members.size())).userId;
 	}
 
 	public void transitionToVotingOrNextTurn(Game game) {

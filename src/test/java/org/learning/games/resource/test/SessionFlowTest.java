@@ -15,14 +15,19 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.learning.games.domain.GameService;
 import org.learning.games.domain.gameplay.SessionScoringPolicy;
 import org.learning.games.domain.model.GameOutcome;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
+import jakarta.inject.Inject;
 
 @QuarkusTest
 public class SessionFlowTest {
+
+	@Inject
+	GameService gameService;
 
 	private static final String JOIN_CODE_PATTERN = "[ABCDEFGHJKMNPQRSTUVWXYZ23456789]{5}";
 
@@ -196,28 +201,18 @@ public class SessionFlowTest {
 		@Test
 		@Order(8)
 		@TestSecurity(user = "admin")
-		void adminCompletesTurn() {
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
-		}
-
-		@Test
-		@Order(9)
-		@TestSecurity(user = "player2")
-		void playerTwoCompletesTurn() {
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
-		}
-
-		@Test
-		@Order(10)
-		@TestSecurity(user = "player3")
-		void playerThreeCompletesTurnEntersVoting() {
-			given().when().post("/games/{id}/turn/complete", gameId).then()
+		void completeAllTurnsEntersVoting() {
+			TurnCompletionSupport.completeAllTurns(gameService, gameId, "admin");
+			given()
+					.when()
+					.get("/games/{id}", gameId)
+					.then()
 					.statusCode(200)
 					.body("status", is("VOTING"));
 		}
 
 		@Test
-		@Order(11)
+		@Order(9)
 		@TestSecurity(user = "admin")
 		void adminVotes() {
 			given()

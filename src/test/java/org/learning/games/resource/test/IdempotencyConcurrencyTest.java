@@ -2,11 +2,13 @@ package org.learning.games.resource.test;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
+import jakarta.inject.Inject;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.learning.games.domain.GameService;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
@@ -18,6 +20,9 @@ public class IdempotencyConcurrencyTest {
 	 * REST replay after duplicate action with the same idempotency key.
 	 * Parallel first-time key races are covered by {@link org.learning.games.domain.IdempotencyServiceConcurrencyTest}.
 	 */
+
+	@Inject
+	GameService gameService;
 
 	private static long secretWordId;
 
@@ -90,6 +95,7 @@ public class IdempotencyConcurrencyTest {
 		@Order(5)
 		@TestSecurity(user = "admin")
 		void duplicateActionWithSameKeyReplaysInsteadOfFailing() {
+			TurnCompletionSupport.advanceUntilTurn(gameService, gameId, "admin");
 			String key = "rapid-turn-key";
 
 			given()

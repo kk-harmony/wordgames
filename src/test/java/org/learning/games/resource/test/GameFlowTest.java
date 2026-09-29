@@ -2,11 +2,13 @@ package org.learning.games.resource.test;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
+import jakarta.inject.Inject;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.learning.games.domain.GameService;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
@@ -15,6 +17,9 @@ import static org.hamcrest.CoreMatchers.notNullValue;
 
 @QuarkusTest
 public class GameFlowTest {
+
+	@Inject
+	GameService gameService;
 
 	private static long secretWordId;
 
@@ -235,41 +240,18 @@ public class GameFlowTest {
 		@Test
 		@Order(5)
 		@TestSecurity(user = "admin")
-		void adminCompletesTurn() {
+		void completeAllTurnsEntersVoting() {
+			TurnCompletionSupport.completeAllTurns(gameService, gameId, "admin");
 			given()
 					.when()
-					.post("/games/{id}/turn/complete", gameId)
-					.then()
-					.statusCode(200)
-					.body("status", is("IN_PROGRESS"));
-		}
-
-		@Test
-		@Order(6)
-		@TestSecurity(user = "player2")
-		void playerTwoCompletesTurn() {
-			given()
-					.when()
-					.post("/games/{id}/turn/complete", gameId)
-					.then()
-					.statusCode(200)
-					.body("status", is("IN_PROGRESS"));
-		}
-
-		@Test
-		@Order(7)
-		@TestSecurity(user = "player3")
-		void playerThreeCompletesTurnEntersVoting() {
-			given()
-					.when()
-					.post("/games/{id}/turn/complete", gameId)
+					.get("/games/{id}", gameId)
 					.then()
 					.statusCode(200)
 					.body("status", is("VOTING"));
 		}
 
 		@Test
-		@Order(8)
+		@Order(6)
 		@TestSecurity(user = "admin")
 		void adminVotesForPlayerTwo() {
 			given()
@@ -379,26 +361,12 @@ public class GameFlowTest {
 		@Test
 		@Order(5)
 		@TestSecurity(user = "admin")
-		void adminTurn() {
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
+		void completeAllTurns() {
+			TurnCompletionSupport.completeAllTurns(gameService, gameId, "admin");
 		}
 
 		@Test
 		@Order(6)
-		@TestSecurity(user = "player2")
-		void playerTwoTurn() {
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
-		}
-
-		@Test
-		@Order(7)
-		@TestSecurity(user = "player3")
-		void playerThreeTurn() {
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
-		}
-
-		@Test
-		@Order(8)
 		@TestSecurity(user = "admin")
 		void firstCircularVoteResets() {
 			given()
@@ -575,26 +543,12 @@ public class GameFlowTest {
 		@Test
 		@Order(8)
 		@TestSecurity(user = "admin")
-		void completeAdminTurn() {
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
+		void completeAllTurns() {
+			TurnCompletionSupport.completeAllTurns(gameService, gameId, "admin");
 		}
 
 		@Test
 		@Order(9)
-		@TestSecurity(user = "player2")
-		void completePlayerTwoTurn() {
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
-		}
-
-		@Test
-		@Order(10)
-		@TestSecurity(user = "player3")
-		void completePlayerThreeTurn() {
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
-		}
-
-		@Test
-		@Order(11)
 		@TestSecurity(user = "admin")
 		void voteOutImpostorAdmin() {
 			String target = "admin".equals(impostor) ? "player2" : impostor;
@@ -721,26 +675,12 @@ public class GameFlowTest {
 		@Test
 		@Order(7)
 		@TestSecurity(user = "admin")
-		void roundOneTurnAdmin() {
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
+		void completeRoundOneTurns() {
+			TurnCompletionSupport.completeAllTurns(gameService, gameId, "admin");
 		}
 
 		@Test
 		@Order(8)
-		@TestSecurity(user = "player2")
-		void roundOneTurnTwo() {
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
-		}
-
-		@Test
-		@Order(9)
-		@TestSecurity(user = "player3")
-		void roundOneTurnThree() {
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
-		}
-
-		@Test
-		@Order(10)
 		@TestSecurity(user = "admin")
 		void roundOneVoteAdmin() {
 			given()
@@ -811,6 +751,7 @@ public class GameFlowTest {
 	class TurnOrderFlow {
 
 		private static long gameId;
+		private static String firstTurnUserId;
 
 		@Test
 		@Order(1)
@@ -845,32 +786,49 @@ public class GameFlowTest {
 		@Test
 		@Order(4)
 		@TestSecurity(user = "admin")
-		void startSetsFirstTurn() {
-			given()
+		void startSetsRandomFirstTurn() {
+			firstTurnUserId = given()
 					.header("Content-Type", "application/json")
 					.body("{\"secretWordId\": " + secretWordId() + "}")
 					.when()
 					.post("/games/{id}/start", gameId)
 					.then()
 					.statusCode(200)
-					.body("currentTurnUserId", is("admin"));
+					.body("currentTurnUserId", notNullValue())
+					.extract()
+					.jsonPath()
+					.getString("currentTurnUserId");
+			org.junit.jupiter.api.Assertions.assertTrue(
+					java.util.Set.of("admin", "player2", "player3").contains(firstTurnUserId));
 		}
 
 		@Test
 		@Order(5)
 		@TestSecurity(user = "player2")
-		void playerTwoCannotGoOutOfOrder() {
-			given()
+		void playerTwoCannotGoOutOfOrderUnlessTheirTurn() {
+			int expected = "player2".equals(firstTurnUserId) ? 200 : 400;
+			var response = given()
 					.when()
 					.post("/games/{id}/turn/complete", gameId)
 					.then()
-					.statusCode(400);
+					.statusCode(expected);
+			if (expected == 200) {
+				firstTurnUserId = response.extract().jsonPath().getString("currentTurnUserId");
+			}
 		}
 
 		@Test
 		@Order(6)
 		@TestSecurity(user = "admin")
-		void adminCompletesAndPassesTurn() {
+		void adminActsOnlyOnOwnTurnAndPassesWhenAllowed() {
+			if (!"admin".equals(firstTurnUserId)) {
+				given()
+						.when()
+						.post("/games/{id}/turn/complete", gameId)
+						.then()
+						.statusCode(400);
+				return;
+			}
 			given()
 					.when()
 					.post("/games/{id}/turn/complete", gameId)
