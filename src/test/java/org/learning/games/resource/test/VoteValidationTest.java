@@ -2,11 +2,13 @@ package org.learning.games.resource.test;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
+import jakarta.inject.Inject;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.learning.games.domain.GameService;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
@@ -14,6 +16,9 @@ import static org.hamcrest.CoreMatchers.notNullValue;
 
 @QuarkusTest
 public class VoteValidationTest {
+
+	@Inject
+	GameService gameService;
 
 	private static long secretWordId;
 
@@ -81,30 +86,17 @@ public class VoteValidationTest {
 					.then()
 					.statusCode(200);
 
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
-		}
-
-		@Test
-		@Order(5)
-		@TestSecurity(user = "vote-p2")
-		void playerTwoTurn() {
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
-		}
-
-		@Test
-		@Order(6)
-		@TestSecurity(user = "vote-p3")
-		void playerThreeTurnEntersVoting() {
+			TurnCompletionSupport.completeAllTurns(gameService, gameId, "vote-admin");
 			given()
 					.when()
-					.post("/games/{id}/turn/complete", gameId)
+					.get("/games/{id}", gameId)
 					.then()
 					.statusCode(200)
 					.body("status", is("VOTING"));
 		}
 
 		@Test
-		@Order(7)
+		@Order(5)
 		@TestSecurity(user = "vote-admin")
 		void cannotVoteForSelf() {
 			given()
@@ -195,26 +187,12 @@ public class VoteValidationTest {
 		@Test
 		@Order(5)
 		@TestSecurity(user = "tie4-admin")
-		void adminTurn() {
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
+		void completeAllTurns() {
+			TurnCompletionSupport.completeAllTurns(gameService, gameId, "tie4-admin");
 		}
 
 		@Test
 		@Order(6)
-		@TestSecurity(user = "tie4-p2")
-		void playerTwoTurn() {
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
-		}
-
-		@Test
-		@Order(7)
-		@TestSecurity(user = "tie4-p3")
-		void playerThreeTurn() {
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
-		}
-
-		@Test
-		@Order(8)
 		@TestSecurity(user = "tie4-admin")
 		void tieRoundOneVoteOne() {
 			given()

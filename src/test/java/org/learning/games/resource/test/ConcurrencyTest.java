@@ -1,15 +1,19 @@
 package org.learning.games.resource.test;
 
-import io.quarkus.test.junit.QuarkusTest;
-import io.quarkus.test.security.TestSecurity;
-import org.junit.jupiter.api.MethodOrderer;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Order;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import static io.restassured.RestAssured.given;
-import static org.hamcrest.CoreMatchers.is;
+import org.learning.games.domain.GameLifecycleService;
+import org.learning.games.domain.GameService;
+import org.learning.games.domain.SecretWordRepository;
+import org.learning.games.domain.exception.BadRequestException;
+import org.learning.games.entity.Game;
+import org.learning.games.entity.SecretWord;
+import org.junit.jupiter.api.Test;
+
+import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.test.junit.QuarkusTest;
+import jakarta.inject.Inject;
 
 @QuarkusTest
 public class ConcurrencyTest {
@@ -19,89 +23,38 @@ public class ConcurrencyTest {
 	 * Optimistic-lock conflicts (409 CONFLICT) are covered by {@link org.learning.games.domain.GameServiceConcurrencyTest}.
 	 */
 
-	private static long secretWordId;
+	@Inject
+	GameLifecycleService lifecycleService;
 
-	private static long secretWordId() {
-		if (secretWordId == 0) {
-			secretWordId = given()
-					.header("Content-Type", "application/json")
-					.body("{\"authentic\": \"lime\", \"imposed\": \"lemon\"}")
-					.when()
-					.post("/secretwords")
-					.then()
-					.statusCode(201)
-					.extract()
-					.jsonPath()
-					.getLong("id");
-		}
-		return secretWordId;
-	}
+	@Inject
+	GameService gameService;
 
-	@Nested
-	@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
-	class TurnCompleteWithoutIdempotencyKey {
+	@Inject
+	SecretWordRepository secretWordRepository;
 
-		private static long gameId;
+	@Test
+	void secondTurnCompleteWithoutKeyReturnsBadRequest() {
+		long gameId = QuarkusTransaction.requiringNew().call(() -> {
+			SecretWord secretWord = new SecretWord();
+			secretWord.authentic = "lime";
+			secretWord.imposed = "lemon";
+			secretWordRepository.persist(secretWord);
 
-		@Test
-		@Order(1)
-		@TestSecurity(user = "admin")
-		void setup() {
-			gameId = given()
-					.header("Content-Type", "application/json")
-					.body("{\"name\": \"Concurrency Game\"}")
-					.when()
-					.post("/games")
-					.then()
-					.statusCode(201)
-					.extract()
-					.jsonPath()
-					.getLong("id");
-		}
+			long id = lifecycleService.createGame("Concurrency Game", null, "admin").id;
+			lifecycleService.joinGame(id, "player2", null);
+			lifecycleService.joinGame(id, "player3", null);
+			Game started = gameService.startGame(id, "admin", secretWord.id);
+			return started.id;
+		});
 
-		@Test
-		@Order(2)
-		@TestSecurity(user = "player2")
-		void playerTwoJoins() {
-			given().when().post("/games/{id}/members", gameId).then().statusCode(201);
-		}
+		String turnUser = QuarkusTransaction.requiringNew()
+				.call(() -> gameService.getGameForMember(gameId, "admin").currentTurnUserId);
 
-		@Test
-		@Order(3)
-		@TestSecurity(user = "player3")
-		void playerThreeJoins() {
-			given().when().post("/games/{id}/members", gameId).then().statusCode(201);
-		}
+		QuarkusTransaction.requiringNew().run(() -> gameService.completeTurn(gameId, turnUser));
 
-		@Test
-		@Order(4)
-		@TestSecurity(user = "admin")
-		void startGame() {
-			given()
-					.header("Content-Type", "application/json")
-					.body("{\"secretWordId\": " + secretWordId() + "}")
-					.when()
-					.post("/games/{id}/start", gameId)
-					.then()
-					.statusCode(200);
-		}
-
-		@Test
-		@Order(5)
-		@TestSecurity(user = "admin")
-		void secondTurnCompleteWithoutKeyReturnsBadRequest() {
-			given()
-					.when()
-					.post("/games/{id}/turn/complete", gameId)
-					.then()
-					.statusCode(200);
-
-			given()
-					.when()
-					.post("/games/{id}/turn/complete", gameId)
-					.then()
-					.statusCode(400)
-					.body("type", is("BAD_REQUEST"));
-		}
+		BadRequestException ex = assertThrows(
+				BadRequestException.class,
+				() -> QuarkusTransaction.requiringNew().run(() -> gameService.completeTurn(gameId, turnUser)));
+		assertEquals("BAD_REQUEST", ex.getCode());
 	}
 }

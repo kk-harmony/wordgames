@@ -2,17 +2,22 @@ package org.learning.games.resource.test;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.security.TestSecurity;
+import jakarta.inject.Inject;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.learning.games.domain.GameService;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 
 @QuarkusTest
 public class IdempotencyTest {
+
+	@Inject
+	GameService gameService;
 
 	private static long secretWordId;
 
@@ -86,6 +91,7 @@ public class IdempotencyTest {
 		@Order(5)
 		@TestSecurity(user = "admin")
 		void firstTurnCompleteStoresResponse() {
+			TurnCompletionSupport.advanceUntilTurn(gameService, gameId, "admin");
 			firstResponse = given()
 					.header("Idempotency-Key", "turn-key-1")
 					.when()
@@ -158,25 +164,11 @@ public class IdempotencyTest {
 					.then()
 					.statusCode(200);
 
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
+			TurnCompletionSupport.completeAllTurns(gameService, gameId, "admin");
 		}
 
 		@Test
 		@Order(5)
-		@TestSecurity(user = "player2")
-		void playerTwoTurn() {
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
-		}
-
-		@Test
-		@Order(6)
-		@TestSecurity(user = "player3")
-		void playerThreeTurn() {
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
-		}
-
-		@Test
-		@Order(7)
 		@TestSecurity(user = "admin")
 		void firstVoteWithKey() {
 			given()
@@ -253,25 +245,11 @@ public class IdempotencyTest {
 					.then()
 					.statusCode(200);
 
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
+			TurnCompletionSupport.completeAllTurns(gameService, gameId, "admin");
 		}
 
 		@Test
 		@Order(5)
-		@TestSecurity(user = "player2")
-		void playerTwoTurn() {
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
-		}
-
-		@Test
-		@Order(6)
-		@TestSecurity(user = "player3")
-		void playerThreeTurn() {
-			given().when().post("/games/{id}/turn/complete", gameId).then().statusCode(200);
-		}
-
-		@Test
-		@Order(7)
 		@TestSecurity(user = "admin")
 		void sameKeyDifferentVoteBodyReturns409() {
 			given()
