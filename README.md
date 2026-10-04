@@ -135,7 +135,7 @@ Production uses the `prod` profile (`QUARKUS_PROFILE=prod`). Flyway migrates the
 
 The app deploys to **https://wordgames-api.fly.dev** via GitHub Actions on every push to `main` (after tests pass).
 
-**Scaling:** up to 2 Machines (512MB shared-cpu-1x each), scale-to-zero when idle (`min_machines_running = 0`), wake on demand.
+**Scaling:** one warm Machine in `iad` (512MB shared-cpu-1x), `min_machines_running = 1`, `auto_stop_machines = "suspend"` (avoids ~20s JVM cold starts for the BFF).
 
 **One-time setup** (before the first auto-deploy):
 
